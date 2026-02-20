@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Body
 from datetime import datetime, timedelta, time
 import pymysql
 
@@ -80,7 +80,7 @@ def get_init_data():
     finally:
         connection.close()
 
-@app.get("/reservations")
+@app.get("/reservations/get")
 def get_reservations(date: str):
     connection = get_connection()
 
@@ -88,15 +88,18 @@ def get_reservations(date: str):
         with connection.cursor() as cursor:
             sql = """
                 SELECT
-                    reserveId,
-                    roomId,
-                    meetingName,
-                    date,
-                    reserver,
-                    start_time,
-                    end_time
-                FROM t_reservation
-                WHERE date = %s
+                    A.reserveId,
+                    A.roomId,
+                    B.roomName,
+                    A.meetingName,
+                    A.date,
+                    A.reserver,
+                    A.start_time,
+                    A.end_time
+                FROM t_reservation A, m_meetingroom B
+                WHERE A.date = %s
+                AND A.roomId = B.roomId
+                AND A.deleteFlg = 0
             """
             cursor.execute(sql, (date,))
             rows = cursor.fetchall()
@@ -116,7 +119,8 @@ def get_reservations(date: str):
             result.append({
                 "reservationId": row["reserveId"],
                 "roomId": row["roomId"],
-                "conferenceName": row["meetingName"],
+                "roomName": row["roomName"],
+                "meetingName": row["meetingName"],
                 "date": row["date"].strftime("%Y-%m-%d"),
                 "reserver": row["reserver"],
                 "start_time": convert_to_time(row["start_time"]).strftime("%H:%M"),
@@ -125,6 +129,40 @@ def get_reservations(date: str):
             })
 
         return result
+
+    finally:
+        connection.close()
+
+@app.post("/reservations/add")
+def test_insert_reservation(payload: dict = Body(...)):
+    connection = get_connection()
+
+    try:
+        with connection.cursor() as cursor:
+            sql = """
+                INSERT INTO t_reservation (
+                    roomId,
+                    meetingName,
+                    date,
+                    reserver,
+                    start_time,
+                    end_time
+                ) VALUES (
+                   %s, %s, %s, %s, %s, %s
+                )
+            """
+            cursor.execute(sql,
+                (
+                    payload["roomId"],
+                    payload["meetingName"],
+                    payload["date"],
+                    payload["reserver"],
+                    payload["start_time"],
+                    payload["end_time"],
+                )
+            )
+
+        connection.commit()
 
     finally:
         connection.close()
