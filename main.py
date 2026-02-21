@@ -166,3 +166,22 @@ def test_insert_reservation(payload: dict = Body(...)):
 
     finally:
         connection.close()
+
+@app.delete("/reservations/delete/{reserveId}")
+def test_delete_reservation(reserveId: int):
+    connection = get_connection()
+    try:
+        with connection.cursor() as cursor:
+            sql = """
+                UPDATE
+                    meetingroom.t_reservation
+                SET deleteFlg = 1,
+                updateTime = NOW()
+                WHERE reserveId = %s
+            """ 
+            cursor.execute(sql, (reserveId))
+
+        connection.commit()
+
+    finally:
+        connection.close()
